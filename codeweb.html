@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Web Player - 1 nút</title>
+  <style>
+    :root{
+      --bg:#0f1724;
+      --card:#0b1220;
+      --accent:#60a5fa;
+      --text:#e6eef8;
+    }
+    html,body{height:100%}
+    body{
+      margin:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:linear-gradient(180deg,#071028 0%, #0b1220 100%);
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      color:var(--text);
+    }
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      padding:32px;
+      border-radius:16px;
+      box-shadow: 0 8px 30px rgba(2,6,23,0.6);
+      text-align:center;
+      min-width:260px;
+    }
+    .title{
+      font-size:16px;
+      margin-bottom:18px;
+      opacity:.95;
+    }
+
+    /* nút đơn */
+    .play-btn{
+      --size:110px;
+      width:var(--size);
+      height:var(--size);
+      border-radius:999px;
+      border:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      padding:0 18px;
+      background:linear-gradient(180deg, rgba(96,165,250,0.18), rgba(96,165,250,0.10));
+      color:var(--text);
+      cursor:pointer;
+      transition:transform .12s ease, box-shadow .12s ease;
+      box-shadow: 0 8px 20px rgba(32,50,90,0.45);
+      font-weight:600;
+      font-size:14px;
+      user-select:none;
+    }
+    .play-btn:active{ transform:translateY(2px) scale(.995); }
+    .play-btn:focus{ outline: none; box-shadow: 0 0 0 6px rgba(96,165,250,0.12); }
+
+    .icon {
+      width:32px;
+      height:32px;
+      display:inline-block;
+      flex:0 0 32px;
+    }
+
+    /* ẩn audio element */
+    audio{display:none}
+    .sr-only{
+      position:absolute;
+      left:-10000px;
+      top:auto;
+      width:1px;
+      height:1px;
+      overflow:hidden;
+    }
+  </style>
+</head>
+<body>
+  <div class="card" role="application" aria-label="Trình phát âm thanh đơn giản">
+    <div class="title">Nhấn nút để phát / dừng</div>
+
+    <!-- Nút duy nhất giao diện -->
+    <button id="playBtn" class="play-btn" aria-pressed="false" title="Phát âm thanh (Space để điều khiển)">
+      <!-- icon sẽ được cập nhật bằng JS (SVG) -->
+      <span id="icon" class="icon" aria-hidden="true">
+        <!-- default: play icon -->
+        <svg viewBox="0 0 24 24" fill="none" width="32" height="32" xmlns="http://www.w3.org/2000/svg">
+          <path d="M5 3.5v17l15-8.5L5 3.5z" fill="currentColor"/>
+        </svg>
+      </span>
+      <span id="label">Phát</span>
+    </button>
+
+    <!-- audio element (ẩn). Thay src bằng file bạn muốn -->
+    <audio id="audio" preload="auto">
+      <source src="https://cdn.jsdelivr.net/gh/webminhfansub/nhac-mp3@main/Banana%20Hub%20ch%C3%B3.mp3" type="audio/mpeg">
+      Trình duyệt của bạn không hỗ trợ thẻ audio.
+    </audio>
+
+    <!-- hỗ trợ screen readers -->
+    <div class="sr-only" id="status" aria-live="polite">Đã sẵn sàng</div>
+  </div>
+
+  <script>
+    (function(){
+      const btn = document.getElementById('playBtn');
+      const audio = document.getElementById('audio');
+      const iconWrap = document.getElementById('icon');
+      const label = document.getElementById('label');
+      const status = document.getElementById('status');
+
+      // SVGs cho play/pause
+      const svgPlay = '<svg viewBox="0 0 24 24" fill="none" width="32" height="32" xmlns="http://www.w3.org/2000/svg"><path d="M5 3.5v17l15-8.5L5 3.5z" fill="currentColor"/></svg>';
+      const svgPause = '<svg viewBox="0 0 24 24" fill="none" width="32" height="32" xmlns="http://www.w3.org/2000/svg"><path d="M6 5h4v14H6zM14 5h4v14h-4z" fill="currentColor"/></svg>';
+
+      // cập nhật giao diện theo trạng thái
+      function updateUI(){
+        if (!audio.paused && !audio.ended){
+          iconWrap.innerHTML = svgPause;
+          label.textContent = 'Dừng';
+          btn.setAttribute('aria-pressed','true');
+          status.textContent = 'Đang phát';
+        } else {
+          iconWrap.innerHTML = svgPlay;
+          label.textContent = 'Phát';
+          btn.setAttribute('aria-pressed','false');
+          status.textContent = 'Đã dừng';
+        }
+      }
+
+      // bật hoặc dừng
+      function togglePlay(){
+        if (audio.paused || audio.ended){
+          // play sẽ trả về Promise trên 1 số trình duyệt
+          const p = audio.play();
+          if (p && p.catch) {
+            p.catch(err => {
+              // lỗi play (vd: autoplay bị chặn) -> báo người dùng
+              console.warn('Không thể phát:', err);
+              status.textContent = 'Không thể phát âm thanh. Hãy thử lại.';
+            });
+          }
+        } else {
+          audio.pause();
+          audio.currentTime = 0; // nếu muốn trở về đầu mỗi lần dừng; xóa dòng này nếu muốn resume
+        }
+        updateUI();
+      }
+
+      // Sự kiện click
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        togglePlay();
+      });
+
+      // keyboard support (Space hoặc Enter)
+      btn.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' || e.key === ' ') {
+          e.preventDefault();
+          togglePlay();
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          togglePlay();
+        }
+      });
+
+      // Khi audio kết thúc -> cập nhật UI
+      audio.addEventListener('ended', updateUI);
+      audio.addEventListener('play', updateUI);
+      audio.addEventListener('pause', updateUI);
+
+      // ban đầu cập nhật UI
+      updateUI();
+
+      // Nếu bạn muốn nút dừng khi tab/window ẩn, có thể bật đoạn dưới:
+      // document.addEventListener('visibilitychange', () => {
+      //   if (document.hidden && !audio.paused) {
+      //     audio.pause();
+      //     updateUI();
+      //   }
+      // });
+    })();
+  </script>
+</body>
+</html>
